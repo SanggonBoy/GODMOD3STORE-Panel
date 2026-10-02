@@ -39,6 +39,13 @@ if not (parent and pcall(function() gui.Parent=parent end)) then gui.Parent=pg e
 -- Desain dasar (gelap + neon ungu-biru, gaya lisensi/bios)
 local TH={BG=Color3.fromRGB(11,11,18),PANEL=Color3.fromRGB(19,19,29),CARD=Color3.fromRGB(26,26,40),ACC=Color3.fromRGB(125,90,255),ACC2=Color3.fromRGB(70,170,255),TEXT=Color3.fromRGB(238,238,246),MUTED=Color3.fromRGB(150,150,175)}
 local function cr(o,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 16); c.Parent=o; return c end
+-- helper: buat instance + set properti dari tabel + parent (Instance.new TIDAK menerima tabel properti)
+local function elt(cls,props,parent)
+	local o=Instance.new(cls)
+	if props then for k,v in pairs(props) do o[k]=v end end
+	o.Parent=parent
+	return o
+end
 local function stroke(o,col,th) local s=Instance.new("UIStroke"); s.Color=col or TH.ACC; s.Thickness=th or 1.1; s.Transparency=0.22; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=o; return s end
 local function pad(o,l,r,t,b) local p=Instance.new("UIPadding"); p.PaddingLeft=UDim.new(0,l or 16); p.PaddingRight=UDim.new(0,r or 16); p.PaddingTop=UDim.new(0,t or 14); p.PaddingBottom=UDim.new(0,b or 14); p.Parent=o; return p end
 
@@ -86,7 +93,8 @@ toastLbl.BackgroundTransparency=0.06; toastLbl.BorderSizePixel=0; toastLbl.Text=
 local function toast(t, err) toastLbl.Text=t; toastLbl.TextColor3=err and Color3.fromRGB(255,135,135) or TH.TEXT; toastLbl.Visible=true; task.delay(2.6,function() if toastLbl.Text==t then toastLbl.Visible=false end end) end
 local function postJson(url, body)
 	local s=HttpService:JSONEncode(body)
-	local r=HTTP({Url=url, Method="POST", Headers={["Content-Type"]="application/json"}, Body=s})
+	local ok,r=pcall(function() return HTTP({Url=url, Method="POST", Headers={["Content-Type"]="application/json"}, Body=s}) end)
+	if not ok then warn("[GM] HTTP gagal: "..tostring(r)); return nil,nil end
 	local j=nil; pcall(function() j=HttpService:JSONDecode(r and r.Body or "") end)
 	return r and tonumber(r.StatusCode), j
 end
@@ -155,8 +163,8 @@ local function renderCheats()
 	emptyLbl.Visible=false
 	for _,ch in ipairs(cheats) do
 		local row=Instance.new("Frame"); row.Name="GM_ROW"; row.Size=UDim2.new(1,0,0,62); row.BackgroundColor3=TH.CARD; row.BorderSizePixel=0; row.Parent=sc; cr(row,12)
-		Instance.new("TextLabel", {Name="t",Text=ch.title or ch.id,Font=Enum.Font.GothamBold,TextSize=13,BackgroundTransparency=1,Size=UDim2.new(0.72,0,0,18),Position=UDim2.new(0,14,0,8),TextColor3=TH.TEXT,TextXAlignment=Enum.TextXAlignment.Left}, row)
-		Instance.new("TextLabel", {Name="d",Text=(ch.description and #ch.description>0) and ch.description or "",Font=Enum.Font.Gotham,TextSize=10,BackgroundTransparency=1,Size=UDim2.new(0.72,0,0,28),Position=UDim2.new(0,14,0,26),TextColor3=TH.MUTED,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true}, row)
+		elt("TextLabel",{Name="t",Text=ch.title or ch.id,Font=Enum.Font.GothamBold,TextSize=13,BackgroundTransparency=1,Size=UDim2.new(0.72,0,0,18),Position=UDim2.new(0,14,0,8),TextColor3=TH.TEXT,TextXAlignment=Enum.TextXAlignment.Left},row)
+		elt("TextLabel",{Name="d",Text=(ch.description and #ch.description>0) and ch.description or "",Font=Enum.Font.Gotham,TextSize=10,BackgroundTransparency=1,Size=UDim2.new(0.72,0,0,28),Position=UDim2.new(0,14,0,26),TextColor3=TH.MUTED,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true},row)
 		local go=Instance.new("TextButton"); go.Size=UDim2.new(0,86,0,32); go.Position=UDim2.new(1,-96,0.5,-16); go.BackgroundColor3=TH.ACC; go.AutoButtonColor=false; go.Text="EKSEKUSI  ▶"; go.Font=Enum.Font.GothamBold; go.TextSize=11; go.TextColor3=Color3.fromRGB(255,255,255); go.Parent=row; cr(go,10)
 		go.MouseButton1Click:Connect(function()
 			if running then toast("Sedang menjalankan…"); return end
@@ -202,13 +210,23 @@ local function doLogin()
 	isVIP=data.vip==true
 	cheats=(type(data.cheats)=="table") and data.cheats or {}
 	if type(labelText)~="string" then labelText="" end
-	loadThumb(); paintBadge(); renderCheats()
+	loadThumb()
+	local ok,err=pcall(function() paintBadge(); renderCheats() end)
+	if not ok then toast("Render gagal: "..tostring(err), true); warn("[GM] doLogin renderCheats: "..tostring(err)); return end
 	show("dash"); toast("Login berhasil  ·  "..(isVIP and "VIP" or "FREE")..(labelText~="" and ("  ·  "..labelText) or ""))
 	pcall(function() box.Text="" end)
 end
 
-btn.MouseButton1Click:Connect(doLogin)
-box.FocusLost:Connect(function(enter) if enter then doLogin() end end)
+btn.MouseButton1Click:Connect(function()
+	local ok,err=pcall(doLogin)
+	if not ok then toast("Login gagal: "..tostring(err), true); warn("[GM] doLogin error: "..tostring(err)) end
+end)
+box.FocusLost:Connect(function(enter)
+	if enter then
+		local ok,err=pcall(doLogin)
+		if not ok then toast("Login gagal: "..tostring(err), true); warn("[GM] doLogin error: "..tostring(err)) end
+	end
+end)
 outBtn.MouseButton1Click:Connect(function()
 	token=nil; cheats={}; labelText=nil; isVIP=false
 	box.Text=""; show("login"); toast("Sesi ditutup.")
