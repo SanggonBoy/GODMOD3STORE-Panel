@@ -1,0 +1,7 @@
+private/
+.env
+node_modules/
+
+# Lokal
+.agents/
+skills-lock.json
