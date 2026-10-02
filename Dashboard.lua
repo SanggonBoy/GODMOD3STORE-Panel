@@ -22,6 +22,43 @@ local labelText=nil
 local isVIP=false
 local loggedUid=lp.UserId
 
+-- ===== SESI KEY (ingat key -> auto-login boot) =====
+-- Simpan key plaintext per UserId di file executor (bukan di DB!). Kalau executor
+-- tidak punya file API, fallback ke getgenv() (hilang saat restart executor).
+-- Tradeoff: key di mesin sendiri = orang lain yang pegang mesin ini bisa baca file.
+-- Hapus otomatis saat: tombol Keluar, atau server bilang key tidak valid/expired.
+local SES_DIR='GODMOD3STORE/session'
+local SES_OK=(type(writefile)=='function' and type(readfile)=='function')
+local function sesPath()
+	return SES_DIR..'/'..tostring(lp.UserId)..'.json'
+end
+local function saveSession(k)
+	if getgenv then pcall(function() getgenv().GM_SAVED_KEY=k end) end
+	if not SES_OK or type(k)~='string' or #k<32 then return end
+	pcall(function()
+		if makefolder then pcall(makefolder,SES_DIR) end
+		writefile(sesPath(),HttpService:JSONEncode({k=k,uid=lp.UserId}))
+	end)
+end
+local function loadSession()
+	-- 1) getgenv (bertahan selama executor hidup, lintas reload/teleport)
+	local g=getgenv and getgenv()
+	if g and type(g.GM_SAVED_KEY)=='string' and #g.GM_SAVED_KEY>=32 then return g.GM_SAVED_KEY end
+	-- 2) file (bertahan lintas restart executor)
+	if not SES_OK then return nil end
+	local ok,v=pcall(function()
+		if isfile and not isfile(sesPath()) then return nil end
+		return HttpService:JSONDecode(readfile(sesPath()))
+	end)
+	if ok and type(v)=='table' and type(v.k)=='string' and #v.k>=32 then return v.k end
+	return nil
+end
+local function clearSession()
+	if getgenv then pcall(function() getgenv().GM_SAVED_KEY=nil end) end
+	if not SES_OK then return end
+	pcall(function() if delfile and isfile and isfile(sesPath()) then delfile(sesPath()) end end)
+end
+
 -- UI root
 local pg=lp:WaitForChild("PlayerGui")
 local old=pg:FindFirstChild("GODMOD3STORE_UI")
@@ -197,15 +234,25 @@ local function renderCheats()
 	sc.CanvasSize=UDim2.new(0,0,0, math.max(44, tonumber(y) or 0))
 end
 
-local function doLogin()
-	local key=box.Text:gsub("^%s+",""):gsub("%s+$","")
+local function doLogin(forceKey)
+	local key
+	if type(forceKey)=='string' then
+		key=forceKey
+	else
+		key=box.Text:gsub("^%s+",""):gsub("%s+$","")
+	end
 	if #key<32 then toast("Key minimal 32 karakter.", true); return end
 	btn.Text="…"; btn.BackgroundColor3=Color3.fromRGB(80,80,110)
 	local scode, data=postJson(API_LOGIN, {k=key, u=lp.UserId})
 	btn.Text="MASUK  →"; btn.BackgroundColor3=TH.ACC
 	if scode~=200 or not (data and data.ok and data.token) then
-		toast("Gagal: "..(data and data.reason or ("HTTP "..tostring(scode))), true); return
+		local msg=data and data.reason or ("HTTP "..tostring(scode))
+		if msg=="Key tidak valid" or msg=="Key expired" or msg=="Key terikat ke akun lain" then
+			clearSession() -- key mati -> simpan tidak kekal, paksa masukkan key baru
+		end
+		toast("Gagal: "..tostring(msg), true); return
 	end
+	saveSession(key)
 	token=data.token; labelText=data.label
 	isVIP=data.vip==true
 	cheats=(type(data.cheats)=="table") and data.cheats or {}
@@ -229,8 +276,20 @@ box.FocusLost:Connect(function(enter)
 end)
 outBtn.MouseButton1Click:Connect(function()
 	token=nil; cheats={}; labelText=nil; isVIP=false
-	box.Text=""; show("login"); toast("Sesi ditutup.")
+	clearSession()
+	box.Text=""; show("login"); toast("Sesi ditutup & key dihapus.")
 end)
 
+-- Auto-login: kalau ada key tersimpan, langsung masuk dashboard tanpa mengetik ulang.
 show("login")
+do
+	local saved=loadSession()
+	if saved then
+		box.Text=saved
+		task.spawn(function()
+			local ok,err=pcall(doLogin,saved)
+			if not ok then toast("Login gagal: "..tostring(err), true); warn("[GM] auto-login error: "..tostring(err)) end
+		end)
+	end
+end
 print("[GM] GODMOD3STORE dashboard loaded (by Alexander Jay @absrdme) — masukkan key lalu pilih cheat.")
