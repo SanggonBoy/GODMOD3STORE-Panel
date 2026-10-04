@@ -1,0 +1,10 @@
+private/
+.env
+node_modules/
+
+# Lokal
+.agents/
+skills-lock.json
+
+# Source asli — hanya Dashboard-obf.lua yang di-push
+Dashboard.lua
