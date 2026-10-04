@@ -6,5 +6,9 @@ node_modules/
 .agents/
 skills-lock.json
 
-# Source asli — hanya Dashboard-obf.lua yang di-push
-Dashboard.lua
+# Repo ini publik. HANYA Dashboard.lua (+ README.md) yang boleh di-push.
+# Semua file lain di folder ini WAJIB masuk .gitignore.
+# Cek tiap kali ada file baru: git status -> tidak ada file tak dikenal yang ter-stage.
+Dashboard-obf.lua
+prometheus.config.lua
+*.obfuscated.lua
