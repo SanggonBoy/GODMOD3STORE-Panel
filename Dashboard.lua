@@ -451,16 +451,6 @@ local lTitle=mk("TextLabel",{
 },lCard)
 gradText(lTitle)
 
-mk("TextLabel",{
-	Size=UDim2.new(1,-24,0,28),
-	Position=UDim2.new(0,12,0,42),
-	BackgroundTransparency=1,
-	Text="Key lisensi tidak terikat akun tertentu.\nGunakan key dari admin GODMOD3STORE.",
-	Font=Enum.Font.Gotham,
-	TextSize=11,
-	TextColor3=T.DIM,
-},lCard)
-
 local box=mk("TextBox",{
 	Size=UDim2.new(1,-24,0,42),
 	Position=UDim2.new(0,12,0,80),
