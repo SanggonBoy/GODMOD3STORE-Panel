@@ -377,29 +377,9 @@ do
 	end)
 end
 
-local toastLbl=mk("TextLabel",{
-	AnchorPoint=Vector2.new(0.5,0),
-	Size=UDim2.new(0.9,0,0,28),
-	Position=UDim2.new(0.5,0,0,T.HEAD_H+8),
-	BackgroundColor3=Color3.fromRGB(24,24,36),
-	BackgroundTransparency=0.08,
-	BorderSizePixel=0,
-	Text="",
-	Font=Enum.Font.Gotham,
-	TextSize=12,
-	TextColor3=T.TXT,
-	Visible=false,
-	ZIndex=80,
-},root)
-cr(toastLbl,10)
-local toastStroke=mk("UIStroke",{Color=Color3.fromRGB(255,255,255),Thickness=1.2,Transparency=0.4},toastLbl)
-grad(toastStroke)
-
 local function toast(t,err)
-	toastLbl.Text=t
-	toastLbl.TextColor3=err and Color3.fromRGB(255,135,135) or T.TXT
-	toastLbl.Visible=true
-	task.delay(2.6,function() if toastLbl.Text==t then toastLbl.Visible=false end end)
+	if err then showErr(t) end
+	print("[GM] "..tostring(t))
 end
 
 local function postJson(url,body)
@@ -486,7 +466,7 @@ grad(btn)
 local btnLbl=mk("TextLabel",{
 	Size=UDim2.new(1,0,1,0),
 	BackgroundTransparency=1,
-	Text="MASUK  →",
+	Text="MASUK",
 	Font=Enum.Font.GothamBold,
 	TextSize=13,
 	TextColor3=Color3.fromRGB(255,255,255),
@@ -698,7 +678,7 @@ local function renderCheats()
 		local goLbl=mk("TextLabel",{
 			Size=UDim2.new(1,0,1,0),
 			BackgroundTransparency=1,
-			Text="EKSEKUSI  ▶",
+			Text="EKSEKUSI",
 			Font=Enum.Font.GothamBold,
 			TextSize=11,
 			TextColor3=Color3.fromRGB(255,255,255),
@@ -719,7 +699,7 @@ local function renderCheats()
 				local code,data=postJson(API_VALIDATE,{t=cur,c=ch.id})
 				if code~=200 or not (data and data.ok and data.payload and #data.payload>0) then
 					running=false
-					goLbl.Text="EKSEKUSI  ▶"
+					goLbl.Text="EKSEKUSI"
 					local msg=(data and data.reason) or ("HTTP "..tostring(code))
 					if msg:find("Sesi") or msg:find("berakhir") then
 						token=nil; cheats={}; show("login")
@@ -733,7 +713,6 @@ local function renderCheats()
 					getgenv().GM_TOKEN=cur
 					getgenv().GM_API_VALIDATE=API_VALIDATE
 				end
-				pcall(function() toastLbl.Visible=false end)
 				pcall(function() gui:Destroy() end)
 				local ok,err=pcall(function() loadstring(data.payload)() end)
 				if not ok then warn("[GM] loadstring cheat "..p.." gagal: "..tostring(err)) end
@@ -754,7 +733,7 @@ local function doLogin(forceKey)
 	if #key<32 then toast("Key minimal 32 karakter.",true); return end
 	btnLbl.Text="…"
 	local code,data=postJson(API_LOGIN,{k=key,u=lp.UserId})
-	btnLbl.Text="MASUK  →"
+	btnLbl.Text="MASUK"
 	if code~=200 or not (data and data.ok and data.token) then
 		local msg=(data and data.reason) or ("HTTP "..tostring(code))
 		if msg=="Key tidak valid" or msg=="Key expired" or msg=="Key terikat ke akun lain" then
